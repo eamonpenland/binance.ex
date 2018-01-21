@@ -135,6 +135,50 @@ defmodule Binance do
     end
   end
 
+  # Kline
+
+  @doc """
+  Retrieves kline information for the given trade pair, interval, and start/end time.
+
+  Symbol can be a binance symbol in the form of `"ETHBTC"` or `%Binance.TradePair{}`.
+
+  Returns `{:ok, [%Binance.Kline{}, ...]}` or `{:error, reason}`
+
+  ## Example
+  ```
+  {:ok,
+    [%Binance.Kline{close: "0.00026570", close_time: 1514812799999,
+      high: "0.00026597", ignore: "0", low: "0.00026570", open: "0.00026583",
+      open_time: 1514812740000, quote_volume: "5.57962905",
+      taker_base: "20745.00000000", taker_quote: "5.51662255", trades: 29,
+      volume: "20982.00000000"}, ...]}
+  ```
+  """
+  def get_klines(%Binance.TradePair{} = symbol) do
+    case find_symbol(symbol) do
+      {:ok, binance_symbol} -> get_klines(binance_symbol)
+      e -> e
+    end
+  end
+
+  def get_klines(symbol, interval, start_time, end_time, state) when is_binary(symbol) do
+    case get_binance("/api/v1/klines?symbol=#{symbol}&interval=#{interval}&startTime=#{start_time}&endTime=#{end_time}") do
+      {:ok, data} ->
+        klines = data
+        |> Enum.map(&zip_response(&1))
+        |> Enum.map(&Binance.Kline.new(&1))
+
+        case List.last(klines) do
+          nil ->
+            {:ok, state}
+          last ->
+            new_state = state ++ klines            
+            get_klines(symbol, interval, last.close_time, end_time, new_state)
+        end
+      err -> err
+    end
+  end
+
   # Order
 
   @doc """
@@ -356,5 +400,23 @@ defmodule Binance do
       err ->
         err
     end
+  end
+
+  defp zip_response(data) do
+    kline = [
+      :open_time,
+      :open,
+      :high,
+      :low,
+      :close,
+      :volume,
+      :close_time,
+      :quote_volume,
+      :trades,
+      :taker_base,
+      :taker_quote,
+      :ignore
+    ]
+    Enum.zip(kline, data)
   end
 end
