@@ -172,7 +172,6 @@ defmodule Binance do
           nil ->
             {:ok, state}
           last ->
-            IO.inspect last.close_time
             new_state = state ++ klines
             new_start = last.close_time + 60000            
             get_klines(symbol, interval, new_start, end_time, new_state)
